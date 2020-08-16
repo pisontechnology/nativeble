@@ -1,0 +1,97 @@
+name: Release Build
+
+on:
+  # push:
+  #   branches:
+  #     - master
+  release:
+    types: [published]
+
+jobs:
+
+  extract-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v2
+        with:  
+          ref: master
+      - id: get-version
+        run: echo "::set-output name=version::v$(cat `pwd`/VERSION)"
+
+  build-linux:
+    runs-on: ubuntu-latest
+    needs: extract-version
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+        with:  
+          ref: master 
+      
+      - name: Setup Toolchain Environment
+        run: toolchains/linux/linux_install.sh
+
+      - name: Build for Linux
+        run: toolchains/linux/linux_compile.sh
+
+      - name: Upload release files for Linux
+        uses: djnicholson/release-action@v2.4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag-name: ${{needs.extract-version.outputs.version}}
+          asset-name: linux-x64.zip
+          file: bin/linux/linux-x64.zip
+
+  build-macos:
+    runs-on: macos-latest
+    needs: extract-version
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+        with:  
+          ref: master
+
+      - name: Build for macOS
+        run: toolchains/macos/macos_compile.sh
+
+      - name: Upload release files for macOS
+        uses: djnicholson/release-action@v2.4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag-name: ${{needs.extract-version.outputs.version}}
+          asset-name: darwin-x64.zip
+          file: bin/darwin/darwin-x64.zip
+
+  build-windows:
+    runs-on: windows-latest
+    needs: extract-version
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+        with:
+          ref: master
+
+      - name: Build for Windows x64
+        shell: pwsh
+        run: .\toolchains\windows\scripts\compile.ps1 -a x64
+
+      - name: Build for Windows x86
+        shell: pwsh
+        run: .\toolchains\windows\scripts\compile.ps1 -a x86
+
+      - name: Upload release files for Windows x64
+        uses: djnicholson/release-action@v2.4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag-name: ${{needs.extract-version.outputs.version}}
+          asset-name: windows-x64.zip
+          file: .\bin\windows-x64\windows-x64.zip
+
+      - name: Upload release files for Windows x86
+        uses: djnicholson/release-action@v2.4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag-name: ${{needs.extract-version.outputs.version}}
+          asset-name: windows-x86.zip
+          file: .\bin\windows-x86\windows-x86.zip
